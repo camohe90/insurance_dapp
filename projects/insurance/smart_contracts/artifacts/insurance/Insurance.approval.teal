@@ -1,0 +1,230 @@
+#pragma version 10
+
+smart_contracts.insurance.contract.Insurance.approval_program:
+    txn ApplicationID
+    bnz main_entrypoint@2
+    callsub __init__
+
+main_entrypoint@2:
+    callsub __puya_arc4_router__
+    return
+
+
+// smart_contracts.insurance.contract.Insurance.__puya_arc4_router__() -> uint64:
+__puya_arc4_router__:
+    proto 0 1
+    txn NumAppArgs
+    bz __puya_arc4_router___after_if_else@9
+    method "create()void"
+    method "register_asset(string,uint64,string,string)void"
+    method "review_request(bool,string)void"
+    method "get_asset_id()uint64"
+    txna ApplicationArgs 0
+    match __puya_arc4_router___create_route@2 __puya_arc4_router___register_asset_route@3 __puya_arc4_router___review_request_route@4 __puya_arc4_router___get_asset_id_route@5
+    int 0
+    retsub
+
+__puya_arc4_router___create_route@2:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    !
+    assert // is creating
+    callsub create
+    int 1
+    retsub
+
+__puya_arc4_router___register_asset_route@3:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    txna ApplicationArgs 1
+    extract 2 0
+    txna ApplicationArgs 2
+    btoi
+    txna ApplicationArgs 3
+    extract 2 0
+    txna ApplicationArgs 4
+    extract 2 0
+    callsub register_asset
+    int 1
+    retsub
+
+__puya_arc4_router___review_request_route@4:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    txna ApplicationArgs 1
+    txna ApplicationArgs 2
+    extract 2 0
+    callsub review_request
+    int 1
+    retsub
+
+__puya_arc4_router___get_asset_id_route@5:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    callsub get_asset_id
+    itob
+    byte 0x151f7c75
+    swap
+    concat
+    log
+    int 1
+    retsub
+
+__puya_arc4_router___after_if_else@9:
+    int 0
+    retsub
+
+
+// smart_contracts.insurance.contract.Insurance.create() -> void:
+create:
+    proto 0 0
+    byte "analyst"
+    txn Sender
+    app_global_put
+    byte "asset_status"
+    byte "None"
+    app_global_put
+    retsub
+
+
+// smart_contracts.insurance.contract.Insurance.register_asset(asset_name: bytes, asset_value: uint64, asset_type: bytes, asset_description: bytes) -> void:
+register_asset:
+    proto 4 0
+    byte "asset_name"
+    frame_dig -4
+    app_global_put
+    byte "asset_value"
+    frame_dig -3
+    app_global_put
+    byte "asset_type"
+    frame_dig -2
+    app_global_put
+    byte "asset_description"
+    frame_dig -1
+    app_global_put
+    byte "asset_status"
+    byte "requested"
+    app_global_put
+    retsub
+
+
+// smart_contracts.insurance.contract.Insurance.review_request(acceptance: bytes, analyst_comments: bytes) -> void:
+review_request:
+    proto 2 0
+    txn Sender
+    int 0
+    byte "analyst"
+    app_global_get_ex
+    assert // check self.analyst exists
+    ==
+    assert
+    int 0
+    byte "asset_status"
+    app_global_get_ex
+    assert // check self.asset_status exists
+    byte "accepted"
+    ==
+    !
+    assert
+    int 0
+    byte "asset_status"
+    app_global_get_ex
+    assert // check self.asset_status exists
+    byte "insured"
+    ==
+    !
+    assert
+    byte "analyst_comments"
+    frame_dig -1
+    app_global_put
+    frame_dig -2
+    byte 0x00
+    !=
+    bz review_request_else_body@3
+    byte "asset_status"
+    byte "accepted"
+    app_global_put
+    itxn_begin
+    byte "Token for the asset"
+    itxn_field Note
+    int 0
+    itxn_field ConfigAssetDefaultFrozen
+    int 0
+    itxn_field ConfigAssetDecimals
+    int 1
+    itxn_field ConfigAssetTotal
+    byte "INS"
+    itxn_field ConfigAssetUnitName
+    byte "Insurance"
+    itxn_field ConfigAssetName
+    int acfg
+    itxn_field TypeEnum
+    int 0
+    itxn_field Fee
+    itxn_submit
+    byte "asset_id"
+    itxn CreatedAssetID
+    app_global_put
+    b review_request_after_if_else@4
+
+review_request_else_body@3:
+    byte "asset_status"
+    byte "rejected"
+    app_global_put
+
+review_request_after_if_else@4:
+    retsub
+
+
+// smart_contracts.insurance.contract.Insurance.get_asset_id() -> uint64:
+get_asset_id:
+    proto 0 1
+    int 0
+    byte "asset_id"
+    app_global_get_ex
+    assert // check self.asset_id exists
+    retsub
+
+
+// smart_contracts.insurance.contract.Insurance.__init__() -> void:
+__init__:
+    proto 0 0
+    byte "analyst"
+    global ZeroAddress
+    app_global_put
+    byte "customer"
+    global ZeroAddress
+    app_global_put
+    byte "asset_name"
+    byte ""
+    app_global_put
+    byte "asset_value"
+    int 0
+    app_global_put
+    byte "asset_type"
+    byte ""
+    app_global_put
+    byte "asset_description"
+    byte ""
+    app_global_put
+    byte "asset_status"
+    byte ""
+    app_global_put
+    byte "analyst_comments"
+    byte ""
+    app_global_put
+    byte "asset_id"
+    int 0
+    app_global_put
+    retsub
