@@ -17,7 +17,7 @@ __puya_arc4_router__:
     bz __puya_arc4_router___after_if_else@9
     method "create()void"
     method "register_asset(string,uint64,string,string)void"
-    method "review_request(bool,string)void"
+    method "review_request(string,string)void"
     method "get_asset_id()uint64"
     txna ApplicationArgs 0
     match __puya_arc4_router___create_route@2 __puya_arc4_router___register_asset_route@3 __puya_arc4_router___review_request_route@4 __puya_arc4_router___get_asset_id_route@5
@@ -60,6 +60,7 @@ __puya_arc4_router___review_request_route@4:
     txn ApplicationID
     assert // is not creating
     txna ApplicationArgs 1
+    extract 2 0
     txna ApplicationArgs 2
     extract 2 0
     callsub review_request
@@ -149,8 +150,8 @@ review_request:
     frame_dig -1
     app_global_put
     frame_dig -2
-    byte 0x00
-    !=
+    byte "approved"
+    ==
     bz review_request_else_body@3
     byte "asset_status"
     byte "accepted"

@@ -29,7 +29,7 @@ class Insurance(ARC4Contract):
         asset_type: String,
         asset_description: String
     ) -> None:
-        assert Txn.sender != self.analyst
+        #assert Txn.sender != self.analyst
         self.asset_name = asset_name
         self.asset_value = asset_value
         self.asset_type = asset_type

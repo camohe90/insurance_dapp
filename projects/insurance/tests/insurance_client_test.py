@@ -1,48 +1,101 @@
 import algokit_utils
+import algosdk
 import pytest
-from algokit_utils import get_localnet_default_account
-from algokit_utils.config import config
-from algosdk.v2client.algod import AlgodClient
-from algosdk.v2client.indexer import IndexerClient
+from algokit_utils.beta.account_manager import AddressAndSigner
+from algokit_utils.beta.algorand_client import (
+    AlgorandClient,
+    AssetCreateParams,
+    AssetOptInParams,
+    AssetTransferParams,
+    PayParams,
+)
 
 from smart_contracts.artifacts.insurance.insurance_client import InsuranceClient
 
 
 @pytest.fixture(scope="session")
+def algorand() -> AlgorandClient:
+    """Generate a client to interact with the app"""
+    return AlgorandClient.default_local_net()
+
+
+@pytest.fixture(scope="session")
+def dispenser(algorand: AlgorandClient) -> AddressAndSigner:
+    return algorand.account.dispenser()
+
+
+@pytest.fixture(scope="session")
+def creator(algorand: AlgorandClient, dispenser: AddressAndSigner) -> AddressAndSigner:
+    acct = algorand.account.random()
+
+    algorand.send.payment(
+        PayParams(sender=dispenser.address, receiver=acct.address, amount=10_000_000)
+    )
+
+    return acct
+
+@pytest.fixture(scope="session")
 def insurance_client(
-    algod_client: AlgodClient, indexer_client: IndexerClient
+    algorand: AlgorandClient,
+    creator: AddressAndSigner
 ) -> InsuranceClient:
-    config.configure(
-        debug=True,
-        # trace_all=True,
-    )
-
     client = InsuranceClient(
-        algod_client,
-        creator=get_localnet_default_account(algod_client),
-        indexer_client=indexer_client,
+        algod_client=algorand.client.algod,
+        sender=creator.address,
+        signer=creator.signer,
     )
 
-    client.deploy(
-        on_schema_break=algokit_utils.OnSchemaBreak.AppendApp,
-        on_update=algokit_utils.OnUpdate.AppendApp,
-    )
+    client.create_create()
+
     return client
 
+def test_register_asset(
+    insurance_client: InsuranceClient
+):
 
-def test_says_hello(insurance_client: InsuranceClient) -> None:
-    result = insurance_client.hello(name="World")
-
-    assert result.return_value == "Hello, World"
-
-
-def test_simulate_says_hello_with_correct_budget_consumed(
-    insurance_client: InsuranceClient, algod_client: AlgodClient
-) -> None:
-    result = (
-        insurance_client.compose().hello(name="World").hello(name="Jane").simulate()
+    result = insurance_client.register_asset(
+        asset_name="Car",
+        asset_value= 1000,
+        asset_type= "CAR",
+        asset_description="Car 2024"
     )
 
-    assert result.abi_results[0].return_value == "Hello, World"
-    assert result.abi_results[1].return_value == "Hello, Jane"
-    assert result.simulate_response["txn-groups"][0]["app-budget-consumed"] < 100
+    assert result.confirmed_round
+
+def test_review_request(
+    insurance_client: InsuranceClient,
+    algorand: AlgorandClient,
+    creator: AddressAndSigner,
+):
+
+    algorand.send.payment(
+            PayParams(
+                    sender = creator.address,
+                    receiver= insurance_client.app_address,
+                    amount=200_000,
+                )
+        )
+
+    sp = algorand.client.algod.suggested_params()
+    sp.fee = 1_000
+
+    result = insurance_client.review_request(
+        acceptance="approved", analyst_comments="good car",
+        transaction_parameters=algokit_utils.TransactionParameters(
+                sender=creator.address,
+                signer=creator.signer,
+                suggested_params=sp
+            ),
+        )
+
+    assert result.confirmed_round
+
+    asset_id = insurance_client.get_asset_id().return_value
+    result = algorand.account.get_information(insurance_client.app_address)
+
+    assert result["assets"][0]["amount"] == 1
+    assert asset_id ==  result["assets"][0]["asset-id"]
+
+
+
+
