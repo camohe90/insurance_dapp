@@ -18,7 +18,7 @@ __puya_arc4_router__:
     method "create()void"
     method "register_asset(string,uint64,string,string)void"
     method "review_request(string,string)void"
-    method "recieve_token(uint64)void"
+    method "recieve_token(uint64,pay)void"
     method "get_asset_id()uint64"
     method "get_status()string"
     txna ApplicationArgs 0
@@ -77,6 +77,14 @@ __puya_arc4_router___recieve_token_route@5:
     assert // is not creating
     txna ApplicationArgs 1
     btoi
+    txn GroupIndex
+    int 1
+    -
+    dup
+    gtxns TypeEnum
+    int pay
+    ==
+    assert // transaction type is pay
     callsub recieve_token
     int 1
     retsub
@@ -225,15 +233,25 @@ review_request_after_if_else@4:
     retsub
 
 
-// smart_contracts.insurance.contract.Insurance.recieve_token(asset_id: uint64) -> void:
+// smart_contracts.insurance.contract.Insurance.recieve_token(asset_id: uint64, buyer_txn: uint64) -> void:
 recieve_token:
-    proto 1 0
+    proto 2 0
     txn Sender
     int 0
     byte "customer"
     app_global_get_ex
     assert // check self.customer exists
     ==
+    assert
+    frame_dig -1
+    gtxns Receiver
+    global CurrentApplicationAddress
+    ==
+    assert
+    frame_dig -1
+    gtxns Amount
+    int 100000
+    >=
     assert
     int 0
     byte "asset_status"
@@ -247,7 +265,7 @@ recieve_token:
     int 1
     itxn_field AssetAmount
     itxn_field AssetReceiver
-    frame_dig -1
+    frame_dig -2
     itxn_field XferAsset
     int axfer
     itxn_field TypeEnum

@@ -4,11 +4,12 @@ import pytest
 from algokit_utils.beta.account_manager import AddressAndSigner
 from algokit_utils.beta.algorand_client import (
     AlgorandClient,
-    AssetCreateParams,
     AssetOptInParams,
-    AssetTransferParams,
     PayParams,
 )
+
+from algosdk.atomic_transaction_composer import TransactionWithSigner
+
 
 from smart_contracts.artifacts.insurance.insurance_client import InsuranceClient
 
@@ -113,7 +114,14 @@ def test_recieve_token(
         )
     )
 
-    assert result["confirmation"]
+    
+    buyer_txn = algorand.transactions.payment(
+        PayParams(
+            sender=creator.address,
+            receiver=insurance_client.app_address,
+            amount=300_000,
+        )
+    )
 
     sp = algorand.client.algod.suggested_params()
     sp.fee = 2_000
@@ -121,6 +129,7 @@ def test_recieve_token(
 
     result = insurance_client.recieve_token(
         asset_id = test_asset_id,
+        buyer_txn=TransactionWithSigner(txn=buyer_txn, signer=creator.signer),
         transaction_parameters=algokit_utils.TransactionParameters(
                 foreign_assets=[test_asset_id],
                 sender=creator.address,

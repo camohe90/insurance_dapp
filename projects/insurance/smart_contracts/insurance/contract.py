@@ -1,5 +1,6 @@
-from algopy import ARC4Contract, String, UInt64,Account, Txn, itxn, arc4
+from algopy import ARC4Contract, String, UInt64,Account, Txn, itxn, gtxn, Global
 from algopy.arc4 import abimethod
+
 
 
 class Insurance(ARC4Contract):
@@ -66,10 +67,13 @@ class Insurance(ARC4Contract):
     @abimethod
     def recieve_token(
         self,
-        asset_id: UInt64
+        asset_id: UInt64,
+        buyer_txn: gtxn.PaymentTransaction
     )-> None:
 
         assert Txn.sender == self.customer
+        assert buyer_txn.receiver == Global.current_application_address
+        assert buyer_txn.amount >= 100_000
         assert self.asset_status == String("accepted")
 
         itxn.AssetTransfer(
