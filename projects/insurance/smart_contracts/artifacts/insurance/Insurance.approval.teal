@@ -14,13 +14,15 @@ main_entrypoint@2:
 __puya_arc4_router__:
     proto 0 1
     txn NumAppArgs
-    bz __puya_arc4_router___after_if_else@9
+    bz __puya_arc4_router___after_if_else@11
     method "create()void"
     method "register_asset(string,uint64,string,string)void"
     method "review_request(string,string)void"
+    method "recieve_token(uint64)void"
     method "get_asset_id()uint64"
+    method "get_status()string"
     txna ApplicationArgs 0
-    match __puya_arc4_router___create_route@2 __puya_arc4_router___register_asset_route@3 __puya_arc4_router___review_request_route@4 __puya_arc4_router___get_asset_id_route@5
+    match __puya_arc4_router___create_route@2 __puya_arc4_router___register_asset_route@3 __puya_arc4_router___review_request_route@4 __puya_arc4_router___recieve_token_route@5 __puya_arc4_router___get_asset_id_route@6 __puya_arc4_router___get_status_route@7
     int 0
     retsub
 
@@ -67,7 +69,19 @@ __puya_arc4_router___review_request_route@4:
     int 1
     retsub
 
-__puya_arc4_router___get_asset_id_route@5:
+__puya_arc4_router___recieve_token_route@5:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    txna ApplicationArgs 1
+    btoi
+    callsub recieve_token
+    int 1
+    retsub
+
+__puya_arc4_router___get_asset_id_route@6:
     txn OnCompletion
     !
     assert // OnCompletion is NoOp
@@ -82,7 +96,27 @@ __puya_arc4_router___get_asset_id_route@5:
     int 1
     retsub
 
-__puya_arc4_router___after_if_else@9:
+__puya_arc4_router___get_status_route@7:
+    txn OnCompletion
+    !
+    assert // OnCompletion is NoOp
+    txn ApplicationID
+    assert // is not creating
+    callsub get_status
+    dup
+    len
+    itob
+    extract 6 2
+    swap
+    concat
+    byte 0x151f7c75
+    swap
+    concat
+    log
+    int 1
+    retsub
+
+__puya_arc4_router___after_if_else@11:
     int 0
     retsub
 
@@ -156,6 +190,9 @@ review_request:
     byte "asset_status"
     byte "accepted"
     app_global_put
+    byte "customer"
+    txn Sender
+    app_global_put
     itxn_begin
     byte "Token for the asset"
     itxn_field Note
@@ -188,6 +225,41 @@ review_request_after_if_else@4:
     retsub
 
 
+// smart_contracts.insurance.contract.Insurance.recieve_token(asset_id: uint64) -> void:
+recieve_token:
+    proto 1 0
+    txn Sender
+    int 0
+    byte "customer"
+    app_global_get_ex
+    assert // check self.customer exists
+    ==
+    assert
+    int 0
+    byte "asset_status"
+    app_global_get_ex
+    assert // check self.asset_status exists
+    byte "accepted"
+    ==
+    assert
+    itxn_begin
+    txn Sender
+    int 1
+    itxn_field AssetAmount
+    itxn_field AssetReceiver
+    frame_dig -1
+    itxn_field XferAsset
+    int axfer
+    itxn_field TypeEnum
+    int 0
+    itxn_field Fee
+    itxn_submit
+    byte "asset_status"
+    byte "insured"
+    app_global_put
+    retsub
+
+
 // smart_contracts.insurance.contract.Insurance.get_asset_id() -> uint64:
 get_asset_id:
     proto 0 1
@@ -195,6 +267,16 @@ get_asset_id:
     byte "asset_id"
     app_global_get_ex
     assert // check self.asset_id exists
+    retsub
+
+
+// smart_contracts.insurance.contract.Insurance.get_status() -> bytes:
+get_status:
+    proto 0 1
+    int 0
+    byte "asset_status"
+    app_global_get_ex
+    assert // check self.asset_status exists
     retsub
 
 

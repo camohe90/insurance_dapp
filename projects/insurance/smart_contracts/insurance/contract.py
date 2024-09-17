@@ -50,6 +50,7 @@ class Insurance(ARC4Contract):
 
         if acceptance == String("approved"):
             self.asset_status = String("accepted")
+            self.customer = Txn.sender
             self.asset_id  = itxn.AssetConfig (
             asset_name= "Insurance",
             unit_name= "INS",
@@ -62,8 +63,29 @@ class Insurance(ARC4Contract):
         else:
             self.asset_status = String("rejected")
 
+    @abimethod
+    def recieve_token(
+        self,
+        asset_id: UInt64
+    )-> None:
+
+        assert Txn.sender == self.customer
+        assert self.asset_status == String("accepted")
+
+        itxn.AssetTransfer(
+            xfer_asset = asset_id,
+            asset_receiver = Txn.sender,
+            asset_amount= 1
+        ).submit()
+
+        self.asset_status = String("insured")
 
     @abimethod
     def get_asset_id(self)-> UInt64:
         return self.asset_id
+
+    @abimethod
+    def get_status(self)-> String:
+        return self.asset_status
+
 

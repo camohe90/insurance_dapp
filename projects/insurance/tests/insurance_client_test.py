@@ -77,10 +77,12 @@ def test_review_request(
         )
 
     sp = algorand.client.algod.suggested_params()
-    sp.fee = 1_000
+    sp.fee = 2_000
+    sp.flat_fee = True
 
     result = insurance_client.review_request(
-        acceptance="approved", analyst_comments="good car",
+        acceptance="approved",
+        analyst_comments="good car",
         transaction_parameters=algokit_utils.TransactionParameters(
                 sender=creator.address,
                 signer=creator.signer,
@@ -97,5 +99,43 @@ def test_review_request(
     assert asset_id ==  result["assets"][0]["asset-id"]
 
 
+def test_recieve_token(
+    insurance_client: InsuranceClient,
+    algorand: AlgorandClient,
+    creator: AddressAndSigner,
+):
+    test_asset_id = insurance_client.get_asset_id().return_value
 
+    result = algorand.send.asset_opt_in(
+        AssetOptInParams(
+            sender = creator.address,
+            asset_id = test_asset_id
+        )
+    )
+
+    assert result["confirmation"]
+
+    sp = algorand.client.algod.suggested_params()
+    sp.fee = 2_000
+    sp.flat_fee = True
+
+    result = insurance_client.recieve_token(
+        asset_id = test_asset_id,
+        transaction_parameters=algokit_utils.TransactionParameters(
+                foreign_assets=[test_asset_id],
+                sender=creator.address,
+                signer=creator.signer,
+                suggested_params=sp
+            ),
+        )
+
+    assert result.confirmed_round
+
+    result = algorand.account.get_information(creator.address)
+
+    assert result["assets"][0]["amount"] == 1
+
+    result = insurance_client.get_status().return_value
+
+    assert result == "insured"
 
